@@ -18,3 +18,4 @@ describe("Pruebas del cálculo de promedio", () => {
     }).toThrow();
   });
 });
+

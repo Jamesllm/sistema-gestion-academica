@@ -96,3 +96,4 @@ El workflow se encuentra en `.github/workflows/integracion-continua.yml` y se ac
    ```
 
 3. Crear un **Pull Request** hacia `main` en GitHub y esperar a que las verificaciones automáticas de CI concluyan con éxito antes de integrar los cambios.
+

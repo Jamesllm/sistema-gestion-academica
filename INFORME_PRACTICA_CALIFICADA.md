@@ -357,3 +357,4 @@ Porque actúa como una aduana de calidad automatizada (puerta de calidad o *qual
 1. **Configurar métricas de cobertura de código:** Añadir `--coverage` al script de Jest para establecer un umbral mínimo de cobertura (e.g., 85% o 90%).
 2. **Incorporar Linters (ESLint / Prettier):** Añadir una fase previa de análisis estático de código en el workflow de CI para asegurar coherencia en estilos y buenas prácticas.
 3. **Fijar reglas de protección de rama:** Obligar a que ningún desarrollador pueda hacer push directo a `main` sin pasar por un Pull Request aprobado y con las pruebas en verde.
+

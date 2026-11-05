@@ -11,7 +11,9 @@ function calcularPromedio(nota1, nota2, nota3) {
   ) {
     throw new Error("Las notas deben estar entre 0 y 20");
   }
-  return (nota1 + nota2 + nota3) / 3;
+  // return (nota1 + nota2 + nota3) / 3;
+  return (nota1 + nota2 + nota3) / 2; // Simulación de error
 }
 
 module.exports = { calcularPromedio };
+

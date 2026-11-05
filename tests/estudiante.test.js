@@ -28,3 +28,4 @@ describe("Pruebas del registro de estudiantes", () => {
     }).toThrow("Correo electrónico inválido");
   });
 });
+
