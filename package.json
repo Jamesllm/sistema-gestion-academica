@@ -1,0 +1,13 @@
+{
+  "name": "sistema-gestion-academica",
+  "version": "1.0.0",
+  "description": "Sistema de gestion academica",
+  "main": "src/estudiante.js",
+  "scripts": {
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "jest": "^30.0.0"
+  }
+}
