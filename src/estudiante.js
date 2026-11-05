@@ -14,3 +14,4 @@ function registrarEstudiante(nombre, codigo, correo) {
 }
 
 module.exports = { registrarEstudiante };
+

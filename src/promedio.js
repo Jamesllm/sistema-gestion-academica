@@ -15,3 +15,4 @@ function calcularPromedio(nota1, nota2, nota3) {
 }
 
 module.exports = { calcularPromedio };
+
