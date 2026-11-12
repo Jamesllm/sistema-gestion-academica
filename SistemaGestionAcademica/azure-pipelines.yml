@@ -1,0 +1,207 @@
+# =====================================================================
+# Azure Pipelines - Entrega Continua de SistemaGestionAcademica
+#
+# Repositorio -> Dependencias -> Compilación -> Pruebas -> Artefacto
+#             -> Imagen Docker -> Publicación -> Despliegue (Kubernetes)
+#
+# Configuración en Azure DevOps (una sola vez):
+#   1. Pipelines > New pipeline > GitHub > sistema-gestion-academica
+#      > Existing YAML file > /SistemaGestionAcademica/azure-pipelines.yml
+#   2. Project settings > Service connections:
+#        - "dockerhub-connection"  (tipo Docker Registry -> Docker Hub)
+#        - "k8s-connection"        (tipo Kubernetes -> kubeconfig / AKS)
+#   3. Pipelines > Environments: crear "gestion-academica-dev"
+#   4. Cambiar la variable imageRepository por <usuario-dockerhub>/sistema-gestion-academica
+# =====================================================================
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - SistemaGestionAcademica/*
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - SistemaGestionAcademica/*
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  appDir: 'SistemaGestionAcademica'
+  imageRepository: 'usuario-dockerhub/sistema-gestion-academica'
+  tag: '1.0.$(Build.BuildId)'
+  dockerRegistryServiceConnection: 'dockerhub-connection'
+  k8sServiceConnection: 'k8s-connection'
+  environmentName: 'gestion-academica-dev'
+  MAVEN_CACHE_FOLDER: '$(Pipeline.Workspace)/.m2/repository'
+  MAVEN_OPTS_REPO: '-B -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
+
+stages:
+
+  # -------------------------------------------------------------------
+  # Etapa 1: Integración continua (compilar, probar, empaquetar)
+  # -------------------------------------------------------------------
+  - stage: CI
+    displayName: 'Build y pruebas (Maven)'
+    jobs:
+      - job: Maven
+        displayName: 'Compilar, probar y empaquetar'
+        steps:
+          - checkout: self
+            displayName: 'Repositorio: descargar código fuente'
+
+          - task: Cache@2
+            displayName: 'Restaurar caché de dependencias Maven'
+            inputs:
+              key: 'maven | "$(Agent.OS)" | $(appDir)/pom.xml'
+              restoreKeys: |
+                maven | "$(Agent.OS)"
+              path: $(MAVEN_CACHE_FOLDER)
+
+          - task: Maven@4
+            displayName: 'Instalación de dependencias'
+            inputs:
+              mavenPomFile: '$(appDir)/pom.xml'
+              goals: 'dependency:go-offline'
+              options: '$(MAVEN_OPTS_REPO)'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: '1.17'
+              publishJUnitResults: false
+
+          - task: Maven@4
+            displayName: 'Compilación'
+            inputs:
+              mavenPomFile: '$(appDir)/pom.xml'
+              goals: 'clean compile'
+              options: '$(MAVEN_OPTS_REPO)'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: '1.17'
+              publishJUnitResults: false
+
+          - task: Maven@4
+            displayName: 'Pruebas (JUnit + cobertura JaCoCo)'
+            inputs:
+              mavenPomFile: '$(appDir)/pom.xml'
+              goals: 'test'
+              options: '$(MAVEN_OPTS_REPO)'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: '1.17'
+              publishJUnitResults: true
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              testRunTitle: 'Pruebas SistemaGestionAcademica'
+
+          - task: Maven@4
+            displayName: 'Generación del artefacto (JAR)'
+            inputs:
+              mavenPomFile: '$(appDir)/pom.xml'
+              goals: 'package'
+              options: '$(MAVEN_OPTS_REPO) -DskipTests'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: '1.17'
+              publishJUnitResults: false
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publicar artefacto: JAR'
+            inputs:
+              targetPath: '$(appDir)/target/SistemaGestionAcademica.jar'
+              artifact: 'app-jar'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publicar artefacto: manifiestos Kubernetes'
+            inputs:
+              targetPath: '$(appDir)/kubernetes'
+              artifact: 'manifiestos'
+
+  # -------------------------------------------------------------------
+  # Etapa 2: Construcción y publicación de la imagen Docker
+  # -------------------------------------------------------------------
+  - stage: Docker
+    displayName: 'Imagen Docker'
+    dependsOn: CI
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - job: Imagen
+        displayName: 'Construir y publicar imagen'
+        steps:
+          - checkout: self
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Descargar JAR generado en CI'
+            inputs:
+              artifact: 'app-jar'
+              path: '$(Build.SourcesDirectory)/$(appDir)/target'
+
+          - task: Docker@2
+            displayName: 'Construcción de imagen Docker'
+            inputs:
+              command: 'build'
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              repository: '$(imageRepository)'
+              Dockerfile: '$(appDir)/Dockerfile'
+              buildContext: '$(appDir)'
+              tags: |
+                $(tag)
+                latest
+
+          - task: Docker@2
+            displayName: 'Publicación en Docker Hub'
+            inputs:
+              command: 'push'
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              repository: '$(imageRepository)'
+              tags: |
+                $(tag)
+                latest
+
+  # -------------------------------------------------------------------
+  # Etapa 3: Despliegue en Kubernetes (solo rama main)
+  # -------------------------------------------------------------------
+  - stage: Deploy
+    displayName: 'Despliegue en Kubernetes'
+    dependsOn: Docker
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: Kubernetes
+        displayName: 'kubectl apply + rolling update'
+        environment: '$(environmentName)'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Descargar manifiestos'
+                  inputs:
+                    artifact: 'manifiestos'
+                    path: '$(Pipeline.Workspace)/manifiestos'
+
+                - task: Kubernetes@1
+                  displayName: 'kubectl apply (Deployment y Service)'
+                  inputs:
+                    connectionType: 'Kubernetes Service Connection'
+                    kubernetesServiceEndpoint: '$(k8sServiceConnection)'
+                    command: 'apply'
+                    useConfigurationFile: true
+                    configuration: '$(Pipeline.Workspace)/manifiestos'
+
+                - task: Kubernetes@1
+                  displayName: 'Actualizar imagen (rolling update)'
+                  inputs:
+                    connectionType: 'Kubernetes Service Connection'
+                    kubernetesServiceEndpoint: '$(k8sServiceConnection)'
+                    command: 'set'
+                    arguments: 'image deployment/gestion-academica gestion-academica=$(imageRepository):$(tag)'
+
+                - task: Kubernetes@1
+                  displayName: 'Verificar despliegue'
+                  inputs:
+                    connectionType: 'Kubernetes Service Connection'
+                    kubernetesServiceEndpoint: '$(k8sServiceConnection)'
+                    command: 'rollout'
+                    arguments: 'status deployment/gestion-academica --timeout=180s'

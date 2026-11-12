@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragmentos/layout :: head(${modoEdicion ? 'Editar estudiante' : 'Nuevo estudiante'})}"></head>
+<body>
+<header th:replace="~{fragmentos/layout :: cabecera}"></header>
+
+<main class="contenedor contenedor--angosto">
+    <div class="titulo-seccion">
+        <div>
+            <h1 th:text="${modoEdicion} ? 'Actualizar estudiante' : 'Registrar estudiante'">Registrar estudiante</h1>
+            <p class="subtitulo">Todos los campos son obligatorios.</p>
+        </div>
+        <a th:href="@{/estudiantes}" class="boton boton--secundario">← Volver</a>
+    </div>
+
+    <div th:replace="~{fragmentos/layout :: mensajes}"></div>
+
+    <form class="tarjeta formulario" method="post" novalidate
+          th:action="${modoEdicion} ? @{/estudiantes/{id}(id=${estudiante.id})} : @{/estudiantes}"
+          th:object="${estudiante}">
+
+        <div class="campo">
+            <label for="codigo">Código</label>
+            <input id="codigo" type="text" th:field="*{codigo}" maxlength="9" placeholder="U20231234"
+                   th:classappend="${#fields.hasErrors('codigo')} ? 'invalido'">
+            <small class="error" th:if="${#fields.hasErrors('codigo')}" th:errors="*{codigo}"></small>
+        </div>
+
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="nombres">Nombres</label>
+                <input id="nombres" type="text" th:field="*{nombres}" maxlength="60"
+                       th:classappend="${#fields.hasErrors('nombres')} ? 'invalido'">
+                <small class="error" th:if="${#fields.hasErrors('nombres')}" th:errors="*{nombres}"></small>
+            </div>
+            <div class="campo">
+                <label for="apellidos">Apellidos</label>
+                <input id="apellidos" type="text" th:field="*{apellidos}" maxlength="60"
+                       th:classappend="${#fields.hasErrors('apellidos')} ? 'invalido'">
+                <small class="error" th:if="${#fields.hasErrors('apellidos')}" th:errors="*{apellidos}"></small>
+            </div>
+        </div>
+
+        <div class="campo">
+            <label for="correo">Correo institucional</label>
+            <input id="correo" type="email" th:field="*{correo}" maxlength="100" placeholder="nombre@universidad.edu.pe"
+                   th:classappend="${#fields.hasErrors('correo')} ? 'invalido'">
+            <small class="error" th:if="${#fields.hasErrors('correo')}" th:errors="*{correo}"></small>
+        </div>
+
+        <div class="fila-campos">
+            <div class="campo">
+                <label for="carrera">Carrera</label>
+                <select id="carrera" th:field="*{carrera}"
+                        th:classappend="${#fields.hasErrors('carrera')} ? 'invalido'">
+                    <option value="">-- Seleccione --</option>
+                    <option th:each="c : ${carreras}" th:value="${c}" th:text="${c}"></option>
+                </select>
+                <small class="error" th:if="${#fields.hasErrors('carrera')}" th:errors="*{carrera}"></small>
+            </div>
+            <div class="campo">
+                <label for="semestre">Semestre</label>
+                <input id="semestre" type="number" min="1" max="12" th:field="*{semestre}"
+                       th:classappend="${#fields.hasErrors('semestre')} ? 'invalido'">
+                <small class="error" th:if="${#fields.hasErrors('semestre')}" th:errors="*{semestre}"></small>
+            </div>
+        </div>
+
+        <div class="acciones-formulario">
+            <a th:href="@{/estudiantes}" class="boton boton--secundario">Cancelar</a>
+            <button type="submit" class="boton" th:text="${modoEdicion} ? 'Guardar cambios' : 'Registrar'">Registrar</button>
+        </div>
+    </form>
+</main>
+
+<footer th:replace="~{fragmentos/layout :: pie}"></footer>
+</body>
+</html>

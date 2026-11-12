@@ -1,0 +1,56 @@
+# Deployment: mantiene 2 réplicas (Pods) de la aplicación en ejecución.
+# Si un Pod falla, Kubernetes crea otro automáticamente.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gestion-academica
+  labels:
+    app: gestion-academica
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gestion-academica
+  # Actualización gradual: siempre queda al menos una réplica atendiendo
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: gestion-academica
+    spec:
+      containers:
+        - name: gestion-academica
+          # Jenkins / Azure Pipelines reemplazan esta etiqueta por la del build
+          image: sistema-gestion-academica:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAVA_OPTS
+              value: "-XX:MaxRAMPercentage=75.0"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "384Mi"
+            limits:
+              cpu: "1"
+              memory: "768Mi"
+          # El Pod recibe tráfico solo cuando la aplicación está lista
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          # Si la aplicación deja de responder, Kubernetes reinicia el contenedor
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 3
