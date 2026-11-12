@@ -1,0 +1,161 @@
+// =====================================================================
+// Pipeline de Entrega Continua - SistemaGestionAcademica
+// Checkout -> Build -> Test -> Package -> Docker Build -> Docker Push -> Deploy
+//
+// Configuración del job en Jenkins (Pipeline script from SCM):
+//   Repository URL : https://github.com/Jamesllm/sistema-gestion-academica.git
+//   Branch         : */main
+//   Script Path    : SistemaGestionAcademica/Jenkinsfile
+//
+// Requisitos del agente: JDK 17+, Docker y kubectl configurado contra el clúster
+// (Docker Desktop con Kubernetes o Minikube). Maven NO es necesario: se usa ./mvnw
+// Credencial opcional (para Docker Push): "dockerhub-credentials" (usuario/token)
+// =====================================================================
+
+// Ejecuta un comando en Linux (sh) o en Windows (bat) según el agente
+def ejecutar(String comando) {
+    if (isUnix()) {
+        sh comando
+    } else {
+        bat comando
+    }
+}
+
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'DOCKER_REPO', defaultValue: 'sistema-gestion-academica',
+               description: 'Repositorio de la imagen. Para Docker Hub: <usuario>/sistema-gestion-academica')
+        booleanParam(name: 'PUSH_IMAGE', defaultValue: false,
+               description: 'Publicar la imagen en el registro (requiere la credencial dockerhub-credentials)')
+        booleanParam(name: 'DEPLOY', defaultValue: true,
+               description: 'Desplegar en Kubernetes con kubectl')
+    }
+
+    environment {
+        APP_DIR = 'SistemaGestionAcademica'
+        K8S_DEPLOYMENT = 'gestion-academica'
+        K8S_CONTAINER = 'gestion-academica'
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+    }
+
+    // Revisa el repositorio cada 5 minutos: un push dispara el pipeline
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.MVN = isUnix() ? './mvnw' : 'mvnw.cmd'
+                    env.GIT_SHORT = isUnix()
+                        ? sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        : bat(script: '@git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.IMAGE_TAG = "1.0.${env.BUILD_NUMBER}"
+                    env.IMAGE = "${params.DOCKER_REPO}:${env.IMAGE_TAG}"
+                    if (isUnix()) {
+                        sh "chmod +x ${env.APP_DIR}/mvnw"
+                    }
+                }
+                echo "Commit ${env.GIT_SHORT} -> imagen ${env.IMAGE}"
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir(env.APP_DIR) {
+                    ejecutar("${env.MVN} -B clean compile")
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir(env.APP_DIR) {
+                    ejecutar("${env.MVN} -B test")
+                }
+            }
+            post {
+                // Publica los resultados aunque alguna prueba falle
+                always {
+                    dir(env.APP_DIR) {
+                        junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: false
+                        archiveArtifacts artifacts: 'target/site/jacoco/**', allowEmptyArchive: true
+                    }
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                dir(env.APP_DIR) {
+                    ejecutar("${env.MVN} -B package -DskipTests")
+                    archiveArtifacts artifacts: 'target/SistemaGestionAcademica.jar', fingerprint: true
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                dir(env.APP_DIR) {
+                    ejecutar("docker build -t ${env.IMAGE} -t ${params.DOCKER_REPO}:latest .")
+                    ejecutar("docker image ls ${params.DOCKER_REPO}")
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            when {
+                expression { return params.PUSH_IMAGE }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+                                                  usernameVariable: 'REG_USER',
+                                                  passwordVariable: 'REG_PASS')]) {
+                    script {
+                        if (isUnix()) {
+                            sh 'echo "$REG_PASS" | docker login -u "$REG_USER" --password-stdin'
+                        } else {
+                            bat 'echo %REG_PASS%| docker login -u %REG_USER% --password-stdin'
+                        }
+                    }
+                    ejecutar("docker push ${env.IMAGE}")
+                    ejecutar("docker push ${params.DOCKER_REPO}:latest")
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                expression { return params.DEPLOY }
+            }
+            steps {
+                dir(env.APP_DIR) {
+                    ejecutar('kubectl apply -f kubernetes/')
+                    // Cambia la imagen del Deployment por la recién construida (rolling update)
+                    ejecutar("kubectl set image deployment/${env.K8S_DEPLOYMENT} ${env.K8S_CONTAINER}=${env.IMAGE}")
+                    ejecutar("kubectl rollout status deployment/${env.K8S_DEPLOYMENT} --timeout=180s")
+                    ejecutar('kubectl get deployments,pods,services -l app=gestion-academica -o wide')
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Entrega exitosa: ${env.IMAGE} desplegada (commit ${env.GIT_SHORT})."
+        }
+        failure {
+            echo 'El pipeline falló. Revise la etapa marcada en rojo y el reporte de pruebas.'
+        }
+    }
+}
