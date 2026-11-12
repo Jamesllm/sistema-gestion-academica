@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragmentos/layout :: head('Estudiantes')}"></head>
+<body>
+<header th:replace="~{fragmentos/layout :: cabecera}"></header>
+
+<main class="contenedor">
+    <div class="titulo-seccion">
+        <div>
+            <h1>Estudiantes registrados</h1>
+            <p class="subtitulo">
+                <span th:text="${#lists.size(estudiantes)}">0</span> estudiante(s)
+                <span th:if="${q != null and !#strings.isEmpty(q)}">para la búsqueda «<span th:text="${q}"></span>»</span>
+            </p>
+        </div>
+        <a th:href="@{/estudiantes/nuevo}" class="boton">+ Registrar estudiante</a>
+    </div>
+
+    <div th:replace="~{fragmentos/layout :: mensajes}"></div>
+
+    <form th:action="@{/estudiantes}" method="get" class="buscador">
+        <input type="search" name="q" th:value="${q}" aria-label="Buscar"
+               placeholder="Buscar por código, nombres, apellidos o carrera">
+        <button type="submit" class="boton">Buscar</button>
+        <a th:if="${q != null and !#strings.isEmpty(q)}" th:href="@{/estudiantes}" class="boton boton--secundario">Limpiar</a>
+    </form>
+
+    <div class="tarjeta">
+        <table class="tabla" th:if="${!#lists.isEmpty(estudiantes)}">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Código</th>
+                <th>Apellidos y nombres</th>
+                <th>Correo</th>
+                <th>Carrera</th>
+                <th class="centro">Semestre</th>
+                <th class="derecha">Acciones</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="e : ${estudiantes}">
+                <td th:text="${e.id}">1</td>
+                <td><code th:text="${e.codigo}">U20231234</code></td>
+                <td th:text="${e.apellidos + ', ' + e.nombres}">Apellidos, Nombres</td>
+                <td th:text="${e.correo}">correo@universidad.edu.pe</td>
+                <td th:text="${e.carrera}">Carrera</td>
+                <td class="centro" th:text="${e.semestre}">1</td>
+                <td class="derecha acciones">
+                    <a th:href="@{/estudiantes/{id}/editar(id=${e.id})}" class="boton boton--pequeno boton--secundario">Editar</a>
+                    <form th:action="@{/estudiantes/{id}/eliminar(id=${e.id})}" method="post"
+                          th:attr="data-nombre=${e.nombreCompleto}"
+                          onsubmit="return confirm('¿Eliminar al estudiante ' + this.dataset.nombre + '?');">
+                        <button type="submit" class="boton boton--pequeno boton--peligro">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        <p th:if="${#lists.isEmpty(estudiantes)}" class="vacio">No se encontraron estudiantes.</p>
+    </div>
+</main>
+
+<footer th:replace="~{fragmentos/layout :: pie}"></footer>
+</body>
+</html>

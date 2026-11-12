@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(titulo)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${titulo} + ' · Gestión Académica'">Gestión Académica</title>
+    <link rel="stylesheet" th:href="@{/css/estilos.css}">
+</head>
+<body>
+
+<header th:fragment="cabecera" class="cabecera">
+    <div class="contenedor cabecera__fila">
+        <a th:href="@{/estudiantes}" class="marca">
+            <span class="marca__icono">GA</span>
+            <span>
+                <strong>Sistema de Gestión Académica</strong>
+                <small>Registro de estudiantes universitarios</small>
+            </span>
+        </a>
+        <nav class="menu">
+            <a th:href="@{/estudiantes}">Estudiantes</a>
+            <a th:href="@{/estudiantes/nuevo}" class="boton boton--claro">+ Nuevo estudiante</a>
+        </nav>
+    </div>
+</header>
+
+<div th:fragment="mensajes">
+    <div th:if="${exito}" class="alerta alerta--exito" role="status" th:text="${exito}">Operación exitosa</div>
+    <div th:if="${error}" class="alerta alerta--error" role="alert" th:text="${error}">Error</div>
+</div>
+
+<footer th:fragment="pie" class="pie">
+    <div class="contenedor pie__fila">
+        <span>SistemaGestionAcademica · versión <strong th:text="${appVersion}">1.0.0</strong></span>
+        <span>Atendido por: <code th:text="${appHost}">host</code></span>
+    </div>
+</footer>
+
+</body>
+</html>
