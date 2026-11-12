@@ -4,7 +4,7 @@ Proyecto desarrollado para la asignatura de **Herramientas de Desarrollo**. Impl
 
 ---
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```text
 sistema-gestion-academica/
@@ -25,14 +25,14 @@ sistema-gestion-academica/
 
 ---
 
-## 🚀 Requisitos Previos
+## Requisitos Previos
 
 - [Node.js](https://nodejs.org/) (versión 18, 20 o 22 recomendada)
 - [Git](https://git-scm.com/)
 
 ---
 
-## 🛠️ Instalación y Configuración
+## Instalación y Configuración
 
 1. **Clonar el repositorio:**
    ```bash
@@ -65,7 +65,7 @@ npm run test:watch
 
 ---
 
-## 🔄 Flujo de Integración Continua (GitHub Actions)
+## Flujo de Integración Continua (GitHub Actions)
 
 El workflow se encuentra en `.github/workflows/integracion-continua.yml` y se activa automáticamente con:
 - `push` a la rama `main` y a cualquier rama `feature/**`.
@@ -79,7 +79,7 @@ El workflow se encuentra en `.github/workflows/integracion-continua.yml` y se ac
 
 ---
 
-## 👥 Trabajo Colaborativo con Git y Ramas
+## Trabajo Colaborativo con Git y Ramas
 
 1. Crear una rama independiente por funcionalidad:
    ```bash
